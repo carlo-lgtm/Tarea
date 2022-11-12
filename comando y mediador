@@ -1,0 +1,272 @@
+/* 
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+/**
+ * Author:  CARLOS
+ * Created: 12/11/2022
+ */
+
+<?php
+
+namespace RefactoringGuru\Command\Conceptual;
+
+/**
+ * The Command interface declares a method for executing a command.
+ */
+interface Command
+{
+    public function execute(): void;
+}
+
+/**
+ * Some commands can implement simple operations on their own.
+ */
+class SimpleCommand implements Command
+{
+    private $payload;
+
+    public function __construct(string $payload)
+    {
+        $this->payload = $payload;
+    }
+
+    public function execute(): void
+    {
+        echo "SimpleCommand: See, I can do simple things like printing (" . $this->payload . ")\n";
+    }
+}
+
+/**
+ * However, some commands can delegate more complex operations to other objects,
+ * called "receivers."
+ */
+class ComplexCommand implements Command
+{
+    /**
+     * @var Receiver
+     */
+    private $receiver;
+
+    /**
+     * Context data, required for launching the receiver's methods.
+     */
+    private $a;
+
+    private $b;
+
+    /**
+     * Complex commands can accept one or several receiver objects along with
+     * any context data via the constructor.
+     */
+    public function __construct(Receiver $receiver, string $a, string $b)
+    {
+        $this->receiver = $receiver;
+        $this->a = $a;
+        $this->b = $b;
+    }
+
+    /**
+     * Commands can delegate to any methods of a receiver.
+     */
+    public function execute(): void
+    {
+        echo "ComplexCommand: Complex stuff should be done by a receiver object.\n";
+        $this->receiver->doSomething($this->a);
+        $this->receiver->doSomethingElse($this->b);
+    }
+}
+
+/**
+ * The Receiver classes contain some important business logic. They know how to
+ * perform all kinds of operations, associated with carrying out a request. In
+ * fact, any class may serve as a Receiver.
+ */
+class Receiver
+{
+    public function doSomething(string $a): void
+    {
+        echo "Receiver: Working on (" . $a . ".)\n";
+    }
+
+    public function doSomethingElse(string $b): void
+    {
+        echo "Receiver: Also working on (" . $b . ".)\n";
+    }
+}
+
+/**
+ * The Invoker is associated with one or several commands. It sends a request to
+ * the command.
+ */
+class Invoker
+{
+    /**
+     * @var Command
+     */
+    private $onStart;
+
+    /**
+     * @var Command
+     */
+    private $onFinish;
+
+    /**
+     * Initialize commands.
+     */
+    public function setOnStart(Command $command): void
+    {
+        $this->onStart = $command;
+    }
+
+    public function setOnFinish(Command $command): void
+    {
+        $this->onFinish = $command;
+    }
+
+    /**
+     * The Invoker does not depend on concrete command or receiver classes. The
+     * Invoker passes a request to a receiver indirectly, by executing a
+     * command.
+     */
+    public function doSomethingImportant(): void
+    {
+        echo "Invoker: Does anybody want something done before I begin?\n";
+        if ($this->onStart instanceof Command) {
+            $this->onStart->execute();
+        }
+
+        echo "Invoker: ...doing something really important...\n";
+
+        echo "Invoker: Does anybody want something done after I finish?\n";
+        if ($this->onFinish instanceof Command) {
+            $this->onFinish->execute();
+        }
+    }
+}
+
+/**
+ * The client code can parameterize an invoker with any commands.
+ */
+$invoker = new Invoker();
+$invoker->setOnStart(new SimpleCommand("Say Hi!"));
+$receiver = new Receiver();
+$invoker->setOnFinish(new ComplexCommand($receiver, "Send email", "Save report"));
+
+$invoker->doSomethingImportant();
+
+
+<?php
+
+namespace RefactoringGuru\Mediator\Conceptual;
+
+/**
+ * The Mediator interface declares a method used by components to notify the
+ * mediator about various events. The Mediator may react to these events and
+ * pass the execution to other components.
+ */
+interface Mediator
+{
+    public function notify(object $sender, string $event): void;
+}
+
+/**
+ * Concrete Mediators implement cooperative behavior by coordinating several
+ * components.
+ */
+class ConcreteMediator implements Mediator
+{
+    private $component1;
+
+    private $component2;
+
+    public function __construct(Component1 $c1, Component2 $c2)
+    {
+        $this->component1 = $c1;
+        $this->component1->setMediator($this);
+        $this->component2 = $c2;
+        $this->component2->setMediator($this);
+    }
+
+    public function notify(object $sender, string $event): void
+    {
+        if ($event == "A") {
+            echo "Mediator reacts on A and triggers following operations:\n";
+            $this->component2->doC();
+        }
+
+        if ($event == "D") {
+            echo "Mediator reacts on D and triggers following operations:\n";
+            $this->component1->doB();
+            $this->component2->doC();
+        }
+    }
+}
+
+/**
+ * The Base Component provides the basic functionality of storing a mediator's
+ * instance inside component objects.
+ */
+class BaseComponent
+{
+    protected $mediator;
+
+    public function __construct(Mediator $mediator = null)
+    {
+        $this->mediator = $mediator;
+    }
+
+    public function setMediator(Mediator $mediator): void
+    {
+        $this->mediator = $mediator;
+    }
+}
+
+/**
+ * Concrete Components implement various functionality. They don't depend on
+ * other components. They also don't depend on any concrete mediator classes.
+ */
+class Component1 extends BaseComponent
+{
+    public function doA(): void
+    {
+        echo "Component 1 does A.\n";
+        $this->mediator->notify($this, "A");
+    }
+
+    public function doB(): void
+    {
+        echo "Component 1 does B.\n";
+        $this->mediator->notify($this, "B");
+    }
+}
+
+class Component2 extends BaseComponent
+{
+    public function doC(): void
+    {
+        echo "Component 2 does C.\n";
+        $this->mediator->notify($this, "C");
+    }
+
+    public function doD(): void
+    {
+        echo "Component 2 does D.\n";
+        $this->mediator->notify($this, "D");
+    }
+}
+
+/**
+ * The client code.
+ */
+$c1 = new Component1();
+$c2 = new Component2();
+$mediator = new ConcreteMediator($c1, $c2);
+
+echo "Client triggers operation A.\n";
+$c1->doA();
+
+echo "\n";
+echo "Client triggers operation D.\n";
+$c2->doD();
